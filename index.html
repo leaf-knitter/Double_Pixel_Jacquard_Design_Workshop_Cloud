@@ -2140,33 +2140,61 @@ async function saveToLibrary(type) {
 
 // ==================== Scaled PNG Export ====================
 function exportScaledPNG(imgData, w, h) {
-    // Scale up: target minimum 512px on longest side, or 16x per pixel (whichever is larger)
-    const minTarget = 512;
-    const pixelScale = 16;
-    const scale = Math.max(pixelScale, Math.ceil(minTarget / Math.max(w, h)));
-    const sw = w * scale, sh = h * scale;
-    // Source canvas (1:1 pixel)
-    const src = document.createElement('canvas');
-    src.width = w; src.height = h;
-    src.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(imgData.data), w, h), 0, 0);
-    // Scaled canvas
+    // Scale up: each pixel becomes a sharp block, no interpolation whatsoever
+    const pixelScale = 24;  // 24x per pixel for clear grid recognition
+    const sw = w * pixelScale, sh = h * pixelScale;
     const dst = document.createElement('canvas');
     dst.width = sw; dst.height = sh;
     const dctx = dst.getContext('2d');
+    // Disable anti-aliasing for all operations
     dctx.imageSmoothingEnabled = false;
-    dctx.drawImage(src, 0, 0, sw, sh);
+    dctx.mozImageSmoothingEnabled = false;
+    dctx.webkitImageSmoothingEnabled = false;
+    dctx.msImageSmoothingEnabled = false;
+    // Paint white background first (opaque, no alpha)
+    dctx.fillStyle = '#ffffff';
+    dctx.fillRect(0, 0, sw, sh);
+    // Copy pixels one-by-one with sharp rectangles
+    const d = new Uint8ClampedArray(imgData.data);
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const a = d[i + 3];
+            if (a < 128) continue;  // skip transparent
+            // Use exact RGB, force full opacity
+            const r = d[i], g = d[i+1], b = d[i+2];
+            dctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+            dctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale);
+        }
+    }
     return dst.toDataURL('image/png');
 }
 function exportScaledCanvas(canvas, w, h) {
-    const minTarget = 512;
-    const pixelScale = 16;
-    const scale = Math.max(pixelScale, Math.ceil(minTarget / Math.max(w, h)));
-    const sw = w * scale, sh = h * scale;
+    const pixelScale = 24;
+    const sw = w * pixelScale, sh = h * pixelScale;
     const dst = document.createElement('canvas');
     dst.width = sw; dst.height = sh;
     const dctx = dst.getContext('2d');
     dctx.imageSmoothingEnabled = false;
-    dctx.drawImage(canvas, 0, 0, sw, sh);
+    dctx.mozImageSmoothingEnabled = false;
+    dctx.webkitImageSmoothingEnabled = false;
+    dctx.msImageSmoothingEnabled = false;
+    // Read pixel data directly instead of drawImage to avoid any edge artifacts
+    const srcCtx = canvas.getContext('2d');
+    const imgData = srcCtx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    // White background
+    dctx.fillStyle = '#ffffff';
+    dctx.fillRect(0, 0, sw, sh);
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const a = d[i + 3];
+            if (a < 128) continue;
+            dctx.fillStyle = 'rgb(' + d[i] + ',' + d[i+1] + ',' + d[i+2] + ')';
+            dctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale);
+        }
+    }
     return dst.toDataURL('image/png');
 }
 function downloadDoubleSidedImages(name, frontImgData, backImgData, w, h) {
