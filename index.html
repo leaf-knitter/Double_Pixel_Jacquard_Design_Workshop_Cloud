@@ -237,6 +237,15 @@
         /* ===== Overlay hint ===== */
         .overlay-hint { font-size: 10px; color: var(--text2); text-align: center; margin-top: 4px; font-style: italic; }
 
+        /* ===== Download Options ===== */
+        .download-option-list { display: flex; flex-direction: column; gap: 10px; }
+        .download-option { display: flex; align-items: center; gap: 14px; padding: 16px; border: 2px solid var(--borderc); border-radius: 14px; cursor: pointer; transition: all 0.25s; background: var(--surface); }
+        .download-option:hover { border-color: var(--p); background: var(--p2); transform: translateY(-1px); }
+        .download-option-icon { width: 44px; height: 44px; border-radius: 12px; background: hsl(var(--muted)); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+        .download-option-content { flex: 1; }
+        .download-option-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .download-option-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
         /* ===== Color Replace Panel ===== */
         .replace-panel { display: none; margin-bottom: 12px; padding: 10px 14px; background: hsl(var(--muted)); border-radius: 10px; border: 1px solid var(--borderc); }
         .replace-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -318,10 +327,38 @@
         </div>
         <div class="detail-actions">
             <button class="btn btn-primary" onclick="detailEdit()">✏ 编辑</button>
-            <button class="btn btn-secondary" onclick="detailDownload()">⬇ 下载</button>
+            <button class="btn btn-secondary" onclick="showDownloadOptions()">⬇ 下载</button>
             <button class="btn btn-secondary" style="background:linear-gradient(135deg,#e8e0f3,#d4c4e9);color:#7a5a9a;" onclick="openKnittingHelper()">🧶 辅助编织</button>
             <button class="btn btn-outline" onclick="detailUseForArrange()">🧩 用于拼接</button>
             <button class="btn btn-danger" onclick="detailDelete()">🗑 删除</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Download Options Modal ===== -->
+<div id="downloadModal" class="detail-modal-overlay hidden" onclick="if(event.target===this)closeDownloadModal()">
+    <div class="detail-modal" style="max-width:420px;">
+        <button class="detail-modal-close" onclick="closeDownloadModal()">✕</button>
+        <h3>选择导出格式</h3>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">请选择图纸的导出形式</p>
+        <div class="download-option-list">
+            <div class="download-option" onclick="downloadPlain()">
+                <div class="download-option-icon">🖼</div>
+                <div class="download-option-content">
+                    <div class="download-option-title">高清像素图</div>
+                    <div class="download-option-desc">当前标准形式，清晰放大的像素图案</div>
+                </div>
+            </div>
+            <div class="download-option" onclick="downloadKnittingChart()">
+                <div class="download-option-icon">🧶</div>
+                <div class="download-option-content">
+                    <div class="download-option-title">编织辅助图</div>
+                    <div class="download-option-desc">含网格线、颜色编号、坐标和色块图例</div>
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;">
+            <button class="btn btn-outline" style="width:100%;" onclick="closeDownloadModal()">取消</button>
         </div>
     </div>
 </div>
@@ -575,7 +612,11 @@
                         <button class="tool-btn active" id="etool-brush" onclick="setEditTool('brush')">✏ <span class="tool-label">画笔</span></button>
                         <button class="tool-btn" id="etool-eraser" onclick="setEditTool('eraser')">🧹 <span class="tool-label">橡皮</span></button>
                         <button class="tool-btn" id="etool-picker" onclick="setEditTool('picker')">💧 <span class="tool-label">取色</span></button>
+                        <button class="tool-btn" id="etool-fill" onclick="setEditTool('fill')">🪣 <span class="tool-label">填充</span></button>
                         <button class="tool-btn" id="etool-replace" onclick="setEditTool('replace')">🔄 <span class="tool-label">替换</span></button>
+                        <div class="tool-divider"></div>
+                        <button class="tool-btn" onclick="undoEdit()">↩ <span class="tool-label">撤销</span></button>
+                        <button class="tool-btn" onclick="redoEdit()">↪ <span class="tool-label">重做</span></button>
                         <div class="tool-divider"></div>
                         <button class="tool-btn active" id="egridToggle" onclick="toggleEditGrid()">▦ <span class="tool-label">网格</span></button>
                         <button class="btn btn-outline btn-sm" onclick="cancelEdit()">❌ 取消</button>
@@ -586,6 +627,13 @@
                     </div>
                 </div>
                 <div class="canvas-scroll-container" id="editCanvasWrapper" style="margin-top:12px;"></div>
+                <!-- Transform tools for edit mode (below canvas) -->
+                <div class="transform-tools" id="editTransformTools" style="margin-top:12px;">
+                    <div class="transform-title">🔄 图纸变换（作用于当前 <span id="editXfmSideLabel">正面</span>）</div>
+                    <button class="xfm-btn" onclick="transformEditCanvas('flipH')" title="横向对称">↔ 横向对称</button>
+                    <button class="xfm-btn" onclick="transformEditCanvas('flipV')" title="纵向对称">↕ 纵向对称</button>
+                    <button class="xfm-btn" onclick="transformEditCanvas('rotateCW')" title="顺时针旋转90°">↻ 旋转90°</button>
+                </div>
                 <div class="overlay-hint" id="editOverlayHint" style="display:none;">叠加视图为只读预览，请切换到正面或反面进行编辑</div>
             </div>
         </div>
@@ -1479,6 +1527,23 @@ function switchFinalSide(side) {
     updateFinalSideUI();
 }
 
+function refreshFinalDisplay() {
+    if (!S.finalCanvas || !S.finalCtx) return;
+    if (S.finalSide === 'overlay' && S.finalOffscreenFront && S.finalOffscreenBack) {
+        S.finalCtx.clearRect(0, 0, S.finalW, S.finalH);
+        S.finalCtx.save(); S.finalCtx.globalAlpha = 0.5;
+        S.finalCtx.drawImage(S.finalOffscreenFront, 0, 0);
+        S.finalCtx.drawImage(S.finalOffscreenBack, 0, 0);
+        S.finalCtx.restore();
+    } else if (S.finalSide === 'front' && S.finalOffscreenFront) {
+        S.finalCtx.clearRect(0, 0, S.finalW, S.finalH);
+        S.finalCtx.drawImage(S.finalOffscreenFront, 0, 0);
+    } else if (S.finalSide === 'back' && S.finalOffscreenBack) {
+        S.finalCtx.clearRect(0, 0, S.finalW, S.finalH);
+        S.finalCtx.drawImage(S.finalOffscreenBack, 0, 0);
+    }
+}
+
 function updateFinalSideUI() {
     document.getElementById('finalTabFront').className = S.finalSide === 'front' ? 'side-tab active-front' : 'side-tab';
     document.getElementById('finalTabBack').className = S.finalSide === 'back' ? 'side-tab active-back' : 'side-tab';
@@ -1807,7 +1872,7 @@ function saveState(type) {
         S.finalHistory.push(S.finalCtx.getImageData(0, 0, S.finalW, S.finalH));
         if (S.finalHistory.length > 50) { S.finalHistory.shift(); S.finalHistoryIdx--; }
     } else if (type === 'edit' && S.editCtx) {
-        // Edit state is saved on confirm
+        saveEditState();
     }
 }
 
@@ -1986,7 +2051,14 @@ function detailEdit() {
     startEditing(pat);
 }
 
-function detailDownload() {
+function showDownloadOptions() {
+    document.getElementById('downloadModal').classList.remove('hidden');
+}
+function closeDownloadModal() {
+    document.getElementById('downloadModal').classList.add('hidden');
+}
+function downloadPlain() {
+    closeDownloadModal();
     if (!S.detailPat) return;
     const pat = S.detailPat;
     if (pat.isDoubleSided && pat.backImageData) {
@@ -1997,54 +2069,131 @@ function detailDownload() {
         a.href = exportScaledPNG(pat.imageData, pat.width, pat.height);
         a.click();
     }
+    showToast('高清像素图已下载');
+}
+function downloadKnittingChart() {
+    closeDownloadModal();
+    if (!S.detailPat) return;
+    var pat = S.detailPat;
+
+    if (pat.isDoubleSided && pat.backImageData) {
+        // Export 3 knitting charts: front, back, overlay
+        // 1. Front
+        var frontPat = { name: pat.name + '_正面', width: pat.width, height: pat.height, imageData: pat.imageData, isDoubleSided: false };
+        var a1 = document.createElement('a');
+        a1.download = frontPat.name + '_编织辅助.png';
+        a1.href = exportKnittingChart(frontPat);
+        a1.click();
+
+        // 2. Back
+        setTimeout(function() {
+            var backPat = { name: pat.name + '_反面', width: pat.width, height: pat.height, imageData: pat.backImageData, isDoubleSided: false };
+            var a2 = document.createElement('a');
+            a2.download = backPat.name + '_编织辅助.png';
+            a2.href = exportKnittingChart(backPat);
+            a2.click();
+        }, 300);
+
+        // 3. Overlay (50/50 blend)
+        setTimeout(function() {
+            var oc = document.createElement('canvas');
+            oc.width = pat.width; oc.height = pat.height;
+            var octx = oc.getContext('2d');
+            octx.fillStyle = '#ffffff'; octx.fillRect(0, 0, pat.width, pat.height);
+            var fcv = document.createElement('canvas');
+            fcv.width = pat.width; fcv.height = pat.height;
+            fcv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pat.imageData.data), pat.imageData.width, pat.imageData.height), 0, 0);
+            var bcv = document.createElement('canvas');
+            bcv.width = pat.width; bcv.height = pat.height;
+            bcv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pat.backImageData.data), pat.backImageData.width, pat.backImageData.height), 0, 0);
+            octx.globalAlpha = 0.5; octx.drawImage(fcv, 0, 0); octx.drawImage(bcv, 0, 0); octx.globalAlpha = 1.0;
+            var overlayImgData = octx.getImageData(0, 0, pat.width, pat.height);
+            var overlayPat = { name: pat.name + '_叠加', width: pat.width, height: pat.height, imageData: { data: Array.from(overlayImgData.data), width: overlayImgData.width, height: overlayImgData.height }, isDoubleSided: false };
+            var a3 = document.createElement('a');
+            a3.download = overlayPat.name + '_编织辅助.png';
+            a3.href = exportKnittingChart(overlayPat);
+            a3.click();
+        }, 600);
+
+        showToast('三张编织辅助图（正面、反面、叠加）已下载');
+    } else {
+        // Single-sided: export one knitting chart
+        var a = document.createElement('a');
+        a.download = pat.name + '_编织辅助.png';
+        a.href = exportKnittingChart(pat);
+        a.click();
+        showToast('编织辅助图已下载');
+    }
+}
+function detailDownload() {
+    showDownloadOptions();
 }
 
 function openKnittingHelper() {
     if (!S.detailPat) { showToast('没有可导出的图案'); return; }
     const pat = S.detailPat;
 
-    // Build 1:1 source canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = pat.width;
-    canvas.height = pat.height;
-    const ctx = canvas.getContext('2d');
-
+    // Build overlay imageData for knitting chart export
+    var exportImgData;
     if (pat.isDoubleSided && pat.backImageData) {
-        // Double-sided: export overlay (front 50% + back 50%)
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, pat.width, pat.height);
-        const fc = document.createElement('canvas');
+        // Double-sided: build overlay (front 50% + back 50%)
+        var oc = document.createElement('canvas');
+        oc.width = pat.width; oc.height = pat.height;
+        var octx = oc.getContext('2d');
+        octx.fillStyle = '#ffffff'; octx.fillRect(0, 0, pat.width, pat.height);
+        var fc = document.createElement('canvas');
         fc.width = pat.width; fc.height = pat.height;
         fc.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pat.imageData.data), pat.imageData.width, pat.imageData.height), 0, 0);
-        const bc = document.createElement('canvas');
+        var bc = document.createElement('canvas');
         bc.width = pat.width; bc.height = pat.height;
         bc.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pat.backImageData.data), pat.backImageData.width, pat.backImageData.height), 0, 0);
-        ctx.globalAlpha = 0.5;
-        ctx.drawImage(fc, 0, 0);
-        ctx.drawImage(bc, 0, 0);
-        ctx.globalAlpha = 1.0;
-        showToast('正在导出双面叠加图到辅助编织工具...');
+        octx.globalAlpha = 0.5; octx.drawImage(fc, 0, 0); octx.drawImage(bc, 0, 0); octx.globalAlpha = 1.0;
+        exportImgData = octx.getImageData(0, 0, pat.width, pat.height);
+        showToast('正在导出双面叠加编织辅助图...');
     } else {
-        // Single-sided: export front image directly
-        ctx.putImageData(new ImageData(new Uint8ClampedArray(pat.imageData.data), pat.imageData.width, pat.imageData.height), 0, 0);
-        showToast('正在导出单面图到辅助编织工具...');
+        // Single-sided: use front imageData directly
+        exportImgData = new ImageData(new Uint8ClampedArray(pat.imageData.data), pat.imageData.width, pat.imageData.height);
+        showToast('正在导出单面编织辅助图...');
     }
 
-    // Scale up to prevent blur in external tools
-    const base64 = exportScaledCanvas(canvas, pat.width, pat.height);
-    const filename = pat.name + (pat.isDoubleSided && pat.backImageData ? '_叠加' : '') + '.png';
+    // Build a temp pattern object for exportKnittingChart
+    var exportPat = {
+        name: pat.name,
+        width: pat.width,
+        height: pat.height,
+        imageData: { data: Array.from(exportImgData.data), width: exportImgData.width, height: exportImgData.height },
+        isDoubleSided: false
+    };
 
-    // 1. Auto-download the scaled PNG file
-    const a = document.createElement('a');
+    // Export as knitting chart (with grid, color numbers, legend)
+    var base64 = exportKnittingChart(exportPat);
+    var filename = pat.name + '_编织辅助.png';
+
+    // 1. Auto-download the knitting chart PNG file
+    var a = document.createElement('a');
     a.download = filename;
     a.href = base64;
     a.click();
 
-    // 2. Open target website
-    const targetUrl = 'https://leaf-knitter.github.io/Knitting-Helper-Cloud/';
-    let helperWindow = window.open(targetUrl, '_blank');
+    // 2. Also export a plain scaled PNG for fallback import
+    var plainCanvas = document.createElement('canvas');
+    plainCanvas.width = pat.width; plainCanvas.height = pat.height;
+    var pctx = plainCanvas.getContext('2d');
+    pctx.putImageData(exportImgData, 0, 0);
+    var plainBase64 = exportScaledCanvas(plainCanvas, pat.width, pat.height);
+    var plainFile = pat.name + (pat.isDoubleSided && pat.backImageData ? '_叠加' : '') + '.png';
+    setTimeout(function() {
+        var a2 = document.createElement('a');
+        a2.download = plainFile;
+        a2.href = plainBase64;
+        a2.click();
+    }, 300);
 
-    // 3. Try postMessage to pass data
+    // 3. Open target website
+    var targetUrl = 'https://leaf-knitter.github.io/Knitting-Helper-Cloud/';
+    var helperWindow = window.open(targetUrl, '_blank');
+
+    // 4. Try postMessage to pass data
     if (helperWindow) {
         setTimeout(function() {
             try {
@@ -2053,23 +2202,14 @@ function openKnittingHelper() {
                     name: pat.name,
                     width: pat.width,
                     height: pat.height,
-                    data: base64,
+                    data: plainBase64,
                     isDoubleSided: !!(pat.isDoubleSided && pat.backImageData)
                 }, '*');
             } catch(e) { /* postMessage blocked */ }
         }, 2000);
     }
 
-    // 4. Store in sessionStorage for cross-page access
-    try {
-        sessionStorage.setItem('knit_export_pattern', JSON.stringify({
-            name: pat.name,
-            base64: base64,
-            timestamp: Date.now()
-        }));
-    } catch(e) {}
-
-    showToast('图纸已下载（' + filename + '），辅助编织工具已在新窗口打开，请导入下载的图片');
+    showToast('编织辅助图和平清像素图已分别下载，辅助编织工具已在新窗口打开');
 }
 
 function detailUseForArrange() {
@@ -2117,18 +2257,28 @@ async function saveToLibrary(type) {
         await saveToStorage();
         renderLibrary(); updateSubPatternPool();
         showToast('已保存双面提花子图');
-    } else if (type === 'full' && S.doubleSideEnabled && S.finalOffscreenFront && S.finalOffscreenBack) {
-        const name = prompt('请输入图纸名称：', '双面图纸_' + dateStr);
+    } else if (type === 'full' && S.finalOffscreenBackCtx && hasContent(S.finalOffscreenBackCtx, w, h)) {
+        // Full pattern with double-sided content: save both front and back
+        const name = prompt('请输入图纸名称：', '图纸_' + dateStr);
         if (!name) return;
         var nowISO = new Date().toISOString();
+        // Save current display to appropriate offscreen if needed
+        if (S.finalSide === 'front') {
+            S.finalOffscreenFrontCtx.clearRect(0, 0, S.finalW, S.finalH);
+            S.finalOffscreenFrontCtx.drawImage(S.finalCanvas, 0, 0);
+        } else if (S.finalSide === 'back') {
+            S.finalOffscreenBackCtx.clearRect(0, 0, S.finalW, S.finalH);
+            S.finalOffscreenBackCtx.drawImage(S.finalCanvas, 0, 0);
+        }
         const frontImgData = serializeImageData(S.finalOffscreenFrontCtx.getImageData(0, 0, w, h));
         const backImgData = serializeImageData(S.finalOffscreenBackCtx.getImageData(0, 0, w, h));
         const pat = { name, width: w, height: h, imageData: frontImgData, backImageData: backImgData, isDoubleSided: true, createdAt: nowISO, updatedAt: nowISO };
         S.fullPatterns.push(pat);
         await saveToStorage(); renderLibrary(); updateSubPatternPool();
-        showToast('已保存双面提花图纸');
+        showToast('已保存双面图纸');
     } else {
-        const name = prompt('请输入图纸名称：', '图纸_' + dateStr);
+        // Single-sided save
+        const name = prompt('请输入图纸名称：', (type === 'full' ? '图纸_' : '子图_') + dateStr);
         if (!name) return;
         var nowISO = new Date().toISOString();
         const pat = { name, width: w, height: h, imageData: serializeImageData(ctx.getImageData(0, 0, w, h)), isDoubleSided: false, createdAt: nowISO, updatedAt: nowISO };
@@ -2136,6 +2286,21 @@ async function saveToLibrary(type) {
         await saveToStorage(); renderLibrary(); updateSubPatternPool();
         showToast('已保存到图纸库');
     }
+}
+
+// ==================== Content detection ====================
+function hasContent(ctx, w, h) {
+    try {
+        const d = ctx.getImageData(0, 0, w, h).data;
+        // Check if any pixel differs from white (255,255,255) or transparent
+        for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] < 128) continue; // transparent
+            if (d[i] !== 255 || d[i + 1] !== 255 || d[i + 2] !== 255) {
+                return true; // non-white pixel found
+            }
+        }
+    } catch (e) { return false; }
+    return false;
 }
 
 // ==================== Scaled PNG Export ====================
@@ -2197,6 +2362,167 @@ function exportScaledCanvas(canvas, w, h) {
     }
     return dst.toDataURL('image/png');
 }
+
+// ==================== Knitting Chart Export ====================
+// Numbering: increases from right to left (x), from bottom to top (y)
+// Legend text uses larger fonts and higher contrast
+function exportKnittingChart(pat) {
+    const CELL = 28;
+    const GRID = 1;
+    const GRID_BOLD = 2;
+    const PAD = 24;
+    const LEGEND_GAP = 16;
+    const w = pat.width, h = pat.height;
+    const imgW = w * CELL + (w + 1) * GRID + PAD * 2;
+    const imgH = h * CELL + (h + 1) * GRID + PAD * 2;
+
+    // Build color map: scan from bottom-right to top-left for numbering
+    const colorMap = {};
+    let colorIdx = 0;
+    const d = pat.imageData.data;
+    for (let y = h - 1; y >= 0; y--) {
+        for (let x = w - 1; x >= 0; x--) {
+            const i = (y * w + x) * 4;
+            const a = d[i + 3];
+            if (a < 128) continue;
+            const key = d[i] + ',' + d[i+1] + ',' + d[i+2];
+            if (!colorMap[key]) {
+                colorIdx++;
+                colorMap[key] = { idx: colorIdx, r: d[i], g: d[i+1], b: d[i+2], count: 0 };
+            }
+            colorMap[key].count++;
+        }
+    }
+    const colors = Object.values(colorMap);
+    const legendItemsPerRow = Math.max(1, Math.floor((imgW - PAD * 2) / 120));
+    const legendRows = Math.ceil(colors.length / legendItemsPerRow);
+    const totalH = imgH + 70 + 56 * legendRows + LEGEND_GAP;
+    const canvas = document.createElement('canvas');
+    canvas.width = imgW;
+    canvas.height = totalH;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, imgW, totalH);
+
+    // Draw pixel blocks with color numbers
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const a = d[i + 3];
+            const px = PAD + x * (CELL + GRID) + GRID;
+            const py = PAD + y * (CELL + GRID) + GRID;
+            if (a < 128) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(px, py, CELL, CELL);
+                continue;
+            }
+            const key = d[i] + ',' + d[i+1] + ',' + d[i+2];
+            const col = colorMap[key];
+            ctx.fillStyle = 'rgb(' + d[i] + ',' + d[i+1] + ',' + d[i+2] + ')';
+            ctx.fillRect(px, py, CELL, CELL);
+            if (col) {
+                ctx.fillStyle = getContrastColor(d[i], d[i+1], d[i+2]);
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(col.idx), px + CELL / 2, py + CELL / 2 + 1);
+            }
+        }
+    }
+
+    // Grid lines
+    for (let x = 0; x <= w; x++) {
+        const isBold = (w - x) % 10 === 0;
+        ctx.fillStyle = isBold ? 'rgba(80,50,150,0.55)' : 'rgba(160,140,200,0.25)';
+        const lw = isBold ? GRID_BOLD : GRID;
+        const px = PAD + x * (CELL + GRID);
+        ctx.fillRect(px, PAD, lw, h * (CELL + GRID) + GRID);
+    }
+    for (let y = 0; y <= h; y++) {
+        const isBold = (h - y) % 10 === 0;
+        ctx.fillStyle = isBold ? 'rgba(80,50,150,0.55)' : 'rgba(160,140,200,0.25)';
+        const lw = isBold ? GRID_BOLD : GRID;
+        const py = PAD + y * (CELL + GRID);
+        ctx.fillRect(PAD, py, w * (CELL + GRID) + GRID, lw);
+    }
+
+    // Coordinate labels on all four sides: every cell, 1 to max
+    ctx.fillStyle = '#5a3a7a';
+    ctx.font = 'bold 9px sans-serif';
+    // Top X-axis labels (1 at right, increases leftward)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    for (let x = 0; x < w; x++) {
+        const label = w - x;
+        const px = PAD + x * (CELL + GRID) + GRID + CELL / 2;
+        ctx.fillText(String(label), px, PAD - 4);
+    }
+    // Bottom X-axis labels (same as top)
+    ctx.textBaseline = 'top';
+    for (let x = 0; x < w; x++) {
+        const label = w - x;
+        const px = PAD + x * (CELL + GRID) + GRID + CELL / 2;
+        ctx.fillText(String(label), px, PAD + h * (CELL + GRID) + GRID + 4);
+    }
+    // Left Y-axis labels (1 at bottom, increases upward)
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let y = 0; y < h; y++) {
+        const label = h - y;
+        const py = PAD + y * (CELL + GRID) + GRID + CELL / 2;
+        ctx.fillText(String(label), PAD - 4, py);
+    }
+    // Right Y-axis labels (same as left)
+    ctx.textAlign = 'left';
+    for (let y = 0; y < h; y++) {
+        const label = h - y;
+        const py = PAD + y * (CELL + GRID) + GRID + CELL / 2;
+        ctx.fillText(String(label), PAD + w * (CELL + GRID) + GRID + 4, py);
+    }
+
+    // Legend area (no title text)
+    const legendY = imgH + LEGEND_GAP;
+    const itemY = legendY + 8;
+    const ITEM_W = 120;
+    const BLOCK = 34;
+    colors.forEach((col, i) => {
+        const row = Math.floor(i / legendItemsPerRow);
+        const colNum = i % legendItemsPerRow;
+        const ix = PAD + colNum * ITEM_W;
+        const iy = itemY + row * 56;
+
+        // Color block with border
+        ctx.fillStyle = 'rgb(' + col.r + ',' + col.g + ',' + col.b + ')';
+        ctx.fillRect(ix, iy, BLOCK, BLOCK);
+        ctx.strokeStyle = '#c0b0d8';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(ix, iy, BLOCK, BLOCK);
+
+        // Color number on block
+        ctx.fillStyle = getContrastColor(col.r, col.g, col.b);
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(col.idx), ix + BLOCK / 2, iy + BLOCK / 2);
+
+        // Info text: larger and darker
+        ctx.fillStyle = '#2a1a4a';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText('#' + col.idx, ix + BLOCK + 8, iy + 2);
+        ctx.fillStyle = '#6a5a8a';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(col.count + ' 格', ix + BLOCK + 8, iy + 20);
+    });
+    return canvas.toDataURL('image/png');
+}
+function getContrastColor(r, g, b) {
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 160 ? '#1a1a2e' : '#ffffff';
+}
+
 function downloadDoubleSidedImages(name, frontImgData, backImgData, w, h) {
     const srcF = document.createElement('canvas'); srcF.width = w; srcF.height = h;
     srcF.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(frontImgData.data), w, h), 0, 0);
@@ -2339,6 +2665,10 @@ function startEditing(pat) {
     sideSelector.style.display = pat.isDoubleSided ? 'flex' : 'none';
     if (pat.isDoubleSided) updateEditSideUI();
 
+    // Init edit history
+    editHistory = [S.editCtx.getImageData(0, 0, S.editW, S.editH)];
+    editHistoryIdx = 0;
+
     setEditTool('brush');
 }
 
@@ -2378,17 +2708,81 @@ function updateEditSideUI() {
     document.getElementById('editTabBack').className = S.editSide === 'back' ? 'side-tab active-back' : 'side-tab';
     document.getElementById('editTabOverlay').className = S.editSide === 'overlay' ? 'side-tab active-overlay' : 'side-tab';
     document.getElementById('editOverlayHint').style.display = S.editSide === 'overlay' ? 'block' : 'none';
+    var label = document.getElementById('editXfmSideLabel');
+    if (label) label.textContent = S.editSide === 'front' ? '正面' : S.editSide === 'back' ? '反面' : '叠加';
 }
 
 function setEditTool(tool) {
     S.editTool = tool;
-    document.querySelectorAll('#etool-brush, #etool-eraser, #etool-picker, #etool-replace').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#etool-brush, #etool-eraser, #etool-picker, #etool-fill, #etool-replace').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById('etool-' + tool); if (btn) btn.classList.add('active');
     if (tool === 'replace') {
         showReplacePanel('editReplacePanel');
         showToast('颜色替换：在画布上点击拾取源颜色，然后在调色板选目标颜色');
     } else {
         hideReplacePanel('editReplacePanel');
+    }
+}
+var editHistory = [], editHistoryIdx = -1;
+function saveEditState() {
+    if (!S.editCtx) return;
+    editHistoryIdx++;
+    editHistory = editHistory.slice(0, editHistoryIdx);
+    editHistory.push(S.editCtx.getImageData(0, 0, S.editW, S.editH));
+    if (editHistory.length > 50) { editHistory.shift(); editHistoryIdx--; }
+}
+function transformEditCanvas(type) {
+    if (!S.editCtx) { showToast('请先进入编辑模式'); return; }
+    if (S.editSide === 'overlay') { showToast('叠加视图不支持变换操作'); return; }
+
+    // Determine target context: edit display canvas or offscreen
+    var ctx = S.editCtx;
+    var w = S.editW, h = S.editH;
+    if (S.editOffscreenFront && S.editPat && S.editPat.isDoubleSided) {
+        ctx = S.editSide === 'front' ? S.editOffscreenFrontCtx : S.editOffscreenBackCtx;
+    }
+
+    var srcData = ctx.getImageData(0, 0, w, h);
+    var src = srcData.data;
+    var dst = new Uint8ClampedArray(src.length);
+
+    if (type === 'flipH') {
+        for (var y = 0; y < h; y++) { for (var x = 0; x < w; x++) {
+            var si = (y*w+x)*4, di = (y*w+(w-1-x))*4;
+            dst[di]=src[si]; dst[di+1]=src[si+1]; dst[di+2]=src[si+2]; dst[di+3]=src[si+3];
+        }}
+    } else if (type === 'flipV') {
+        for (var y = 0; y < h; y++) { for (var x = 0; x < w; x++) {
+            var si = (y*w+x)*4, di = ((h-1-y)*w+x)*4;
+            dst[di]=src[si]; dst[di+1]=src[si+1]; dst[di+2]=src[si+2]; dst[di+3]=src[si+3];
+        }}
+    } else if (type === 'rotateCW') {
+        if (w !== h) { showToast('旋转功能仅支持正方形画布'); return; }
+        for (var y = 0; y < h; y++) { for (var x = 0; x < w; x++) {
+            var si = (y*w+x)*4, di = (x*w+(w-1-y))*4;
+            dst[di]=src[si]; dst[di+1]=src[si+1]; dst[di+2]=src[si+2]; dst[di+3]=src[si+3];
+        }}
+    }
+
+    ctx.putImageData(new ImageData(dst, w, h), 0, 0);
+    // Sync to display canvas
+    S.editCtx.putImageData(new ImageData(dst, w, h), 0, 0);
+    saveEditState();
+
+    var names = { flipH: '横向对称', flipV: '纵向对称', rotateCW: '顺时针旋转90°' };
+    showToast((S.editSide === 'front' ? '正面' : S.editSide === 'back' ? '反面' : '') + '已应用' + names[type]);
+}
+
+function undoEdit() {
+    if (editHistoryIdx > 0 && editHistory[editHistoryIdx - 1]) {
+        editHistoryIdx--;
+        S.editCtx.putImageData(editHistory[editHistoryIdx], 0, 0);
+    }
+}
+function redoEdit() {
+    if (editHistoryIdx < editHistory.length - 1 && editHistory[editHistoryIdx + 1]) {
+        editHistoryIdx++;
+        S.editCtx.putImageData(editHistory[editHistoryIdx], 0, 0);
     }
 }
 function toggleEditGrid() {
@@ -2415,6 +2809,7 @@ function cancelEdit() {
     S.editOffscreenFront = null; S.editOffscreenFrontCtx = null;
     S.editOffscreenBack = null; S.editOffscreenBackCtx = null;
     S.editPat = null;
+    editHistory = []; editHistoryIdx = -1;
 }
 
 async function saveEdit() {
@@ -2494,22 +2889,24 @@ function insertPatternAt(pat, cx, cy) {
     const x = Math.max(0, Math.min(S.finalW - pat.width, cx));
     const y = Math.max(0, Math.min(S.finalH - pat.height, cy));
 
-    // Insert front
+    // Prepare front canvas
     const pc = document.createElement('canvas'); pc.width = pat.width; pc.height = pat.height;
     pc.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pat.imageData.data), pat.imageData.width, pat.imageData.height), 0, 0);
-    S.finalCtx.drawImage(pc, x, y);
 
-    // Also insert to final front offscreen
+    // Insert to front offscreen
     if (S.finalOffscreenFrontCtx) {
         S.finalOffscreenFrontCtx.drawImage(pc, x, y);
     }
 
-    // If double-sided, also insert back
+    // If double-sided, also insert back to offscreen
     if (pat.isDoubleSided && pat.backImageData && S.finalOffscreenBackCtx) {
         const bc = document.createElement('canvas'); bc.width = pat.width; bc.height = pat.height;
         bc.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pat.backImageData.data), pat.backImageData.width, pat.backImageData.height), 0, 0);
         S.finalOffscreenBackCtx.drawImage(bc, x, y);
     }
+
+    // Refresh display canvas based on finalSide
+    refreshFinalDisplay();
 
     saveState('final');
     showToast('已插入至 (' + x + ',' + y + ')' + (pat.isDoubleSided ? ' [双面]' : ''));
@@ -2523,18 +2920,15 @@ function repeatPattern(dir) {
     pctx.putImageData(new ImageData(new Uint8ClampedArray(pat.imageData.data), pat.imageData.width, pat.imageData.height), 0, 0);
     const cx = parseInt(document.getElementById('rx').value) || 1;
     const cy = parseInt(document.getElementById('ry').value) || 1;
-    if (dir === 'both') { for (let r = 0; r < cy; r++) for (let c = 0; c < cx; c++) S.finalCtx.drawImage(pc, c * pat.width, r * pat.height); }
-    else if (dir === 'horizontal') { for (let i = 0; i < cx; i++) S.finalCtx.drawImage(pc, i * pat.width, 0); }
-    else if (dir === 'vertical') { for (let i = 0; i < cy; i++) S.finalCtx.drawImage(pc, 0, i * pat.height); }
 
-    // Also repeat to offscreen front
+    // Repeat to offscreen front
     if (S.finalOffscreenFrontCtx) {
         if (dir === 'both') { for (let r = 0; r < cy; r++) for (let c = 0; c < cx; c++) S.finalOffscreenFrontCtx.drawImage(pc, c * pat.width, r * pat.height); }
         else if (dir === 'horizontal') { for (let i = 0; i < cx; i++) S.finalOffscreenFrontCtx.drawImage(pc, i * pat.width, 0); }
         else if (dir === 'vertical') { for (let i = 0; i < cy; i++) S.finalOffscreenFrontCtx.drawImage(pc, 0, i * pat.height); }
     }
 
-    // If double-sided, repeat back too
+    // If double-sided, repeat back to offscreen too
     if (pat.isDoubleSided && pat.backImageData && S.finalOffscreenBackCtx) {
         const bc = document.createElement('canvas'); bc.width = pat.width; bc.height = pat.height;
         bc.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pat.backImageData.data), pat.backImageData.width, pat.backImageData.height), 0, 0);
@@ -2542,6 +2936,9 @@ function repeatPattern(dir) {
         else if (dir === 'horizontal') { for (let i = 0; i < cx; i++) S.finalOffscreenBackCtx.drawImage(bc, i * pat.width, 0); }
         else if (dir === 'vertical') { for (let i = 0; i < cy; i++) S.finalOffscreenBackCtx.drawImage(bc, 0, i * pat.height); }
     }
+
+    // Refresh display canvas based on finalSide
+    refreshFinalDisplay();
 
     saveState('final');
     showToast('已生成阵列' + (pat.isDoubleSided ? ' [双面子图]' : ''));
